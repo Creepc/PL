@@ -50,6 +50,10 @@ app.get('/api/standings', async (req, res) => {
     }
 });
 
+app.get('/test111', async (req, res) => {
+    res.send("test1111");
+});
+
 app.get('/api/matches', async (req, res) => {
     try {
         const response = await fetch(`${BASE_URL}/competitions/PL/matches`, {
