@@ -1,16 +1,33 @@
+// vercel.json 파일이 프로젝트 루트에 있는지 확인하세요.
+// {
+//   "version": 2,
+//   "builds": [
+//     {
+//       "src": "api/index.js",
+//       "use": "@vercel/node"
+//     }
+//   ],
+//   "routes": [
+//     {
+//       "src": "/(.*)",
+//       "dest": "api/index.js"
+//     }
+//   ]
+// }
+
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-
-const app = express();
-const port = 3000;
 
 // API 설정
 const API_KEY = '81cb058adf784977a99e544f38704ea2';
 const BASE_URL = 'https://api.football-data.org/v4';
 const NAVER_CLIENT_ID = 'EYMdS9dkLVmLPzjH4KAG';
 const NAVER_CLIENT_SECRET = '1MA1GuRoDO';
+
+// 서버리스 함수를 위한 Express 앱 생성
+const app = express();
 
 // CORS 설정
 app.use(cors());
@@ -32,7 +49,11 @@ app.use((req, res, next) => {
 // 미들웨어
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, '..')));
+
+// 정적 파일 경로 조정 (Vercel 배포를 고려)
+// Vercel에서 루트 경로는 /api 폴더의 상위 폴더입니다.
+// 따라서 정적 파일의 경로는 /api 폴더를 기준으로 상대 경로를 사용해야 합니다.
+app.use(express.static(path.join(__dirname, '..'))); 
 app.use('/js', express.static(path.join(__dirname, '../js')));
 app.use('/css', express.static(path.join(__dirname, '../css')));
 app.use('/images', express.static(path.join(__dirname, '../images')));
@@ -48,10 +69,6 @@ app.get('/api/standings', async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
-});
-
-app.get('/test111', async (req, res) => {
-    res.send("test1111");
 });
 
 app.get('/api/matches', async (req, res) => {
@@ -117,59 +134,57 @@ app.get('/api/transfers', async (req, res) => {
     res.json(sampleTransfers);
 });
 
-
 // 메인 페이지용 뉴스 API (4개만 표시)
 app.get('/api/news/preview', async (req, res) => {
     try {
-        //console.log('Fetching preview news...');//
         const query = encodeURIComponent('프리미어리그');
         const url = `https://openapi.naver.com/v1/search/news.json?query=${query}&display=4&sort=date`;
-        
+
         const response = await fetch(url, {
             headers: {
                 'X-Naver-Client-Id': NAVER_CLIENT_ID,
                 'X-Naver-Client-Secret': NAVER_CLIENT_SECRET
             }
         });
-        
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const data = await response.json();
         res.json(data);
     } catch (error) {
         console.error('News API Error:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Failed to fetch news',
-            details: error.message 
+            details: error.message
         });
     }
 });
-// 네이버 뉴스 API 라우트
+
 // 뉴스 페이지용 전체 뉴스 API (100개 표시)
 app.get('/api/news', async (req, res) => {
     try {
         const query = encodeURIComponent('프리미어리그');
         const url = `https://openapi.naver.com/v1/search/news.json?query=${query}&display=100&sort=date`;
-        
+
         const response = await fetch(url, {
             headers: {
                 'X-Naver-Client-Id': NAVER_CLIENT_ID,
                 'X-Naver-Client-Secret': NAVER_CLIENT_SECRET
             }
         });
-        
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const data = await response.json();
         res.json(data);
     } catch (error) {
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Failed to fetch news',
-            details: error.message 
+            details: error.message
         });
     }
 });
@@ -179,29 +194,30 @@ app.get('/api/transfer-news', async (req, res) => {
     try {
         const query = encodeURIComponent('프리미어리그 이적');
         const url = `https://openapi.naver.com/v1/search/news.json?query=${query}&display=20&sort=date`;
-        
+
         const response = await fetch(url, {
             headers: {
                 'X-Naver-Client-Id': NAVER_CLIENT_ID,
                 'X-Naver-Client-Secret': NAVER_CLIENT_SECRET
             }
         });
-        
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const data = await response.json();
         res.json(data);
     } catch (error) {
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Failed to fetch news',
-            details: error.message 
+            details: error.message
         });
     }
 });
 
 // HTML 라우트
+// 정적 파일 제공 대신 HTML 파일 응답
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '../index.html'));
 });
@@ -234,25 +250,19 @@ app.get('/post', (req, res) => {
     res.sendFile(path.join(__dirname, '../post.html'));
 });
 
-app.listen(port, () => {
-    console.log(`서버가 포트 ${port}에서 실행중입니다`);
-    console.log(`http://localhost:${port} 으로 접속하세요`);
-});
-
-
 // 특정 팀의 상세 정보를 가져오는 엔드포인트
 app.get('/api/team/:id', async (req, res) => {
     try {
         const teamResponse = await fetch(`${BASE_URL}/teams/${req.params.id}`, {
             headers: { 'X-Auth-Token': API_KEY }
         });
-        
+
         if (!teamResponse.ok) {
             throw new Error(`Team API Error: ${teamResponse.status}`);
         }
-        
+
         const teamData = await teamResponse.json();
-        
+
         // 기본 squad 정보 사용 (추가 API 호출 없이)
         // 필요한 정보만 정제해서 반환
         teamData.squad = teamData.squad.map(player => ({
@@ -267,9 +277,9 @@ app.get('/api/team/:id', async (req, res) => {
         res.json(teamData);
     } catch (error) {
         console.error('Team API Error:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Failed to fetch team data',
-            details: error.message 
+            details: error.message
         });
     }
 });
@@ -288,26 +298,27 @@ app.get('/api/team/:id/matches', async (req, res) => {
     }
 });
 
-
-
 // 선수 상세 정보는 별도 엔드포인트로 분리
 app.get('/api/player/:id', async (req, res) => {
     try {
         const response = await fetch(`${BASE_URL}/persons/${req.params.id}`, {
             headers: { 'X-Auth-Token': API_KEY }
         });
-        
+
         if (!response.ok) {
             throw new Error(`Player API Error: ${response.status}`);
         }
-        
+
         const data = await response.json();
         res.json(data);
     } catch (error) {
         console.error('Player API Error:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Failed to fetch player data',
-            details: error.message 
+            details: error.message
         });
     }
 });
+
+// Vercel 서버리스 함수로 내보내기
+module.exports = app;
